@@ -3,11 +3,16 @@
  * @author Niklaus Leuenberger <@NikLeberg>
  * @brief Implements interface between GHDL (through VHPIDIRCET) and OpenOCD
  *        (through remote bitbanging socket).
- * @version 0.1
- * @date 2024-08-09
+ * @version 0.2
+ * @date 2024-08-13
  *
  * SPDX-License-Identifier: MIT
  *
+ * Changes:
+ * Version  Date        Author     Detail
+ * 0.1      2024-08-09  NikLeberg  initial version
+ * 0.2      2024-08-13  NikLeberg  initialize reset signals to '0' / logic low
+ * 
  */
 
 #include <stdio.h>
@@ -94,7 +99,7 @@ enum HDL_LOGIC_STATES
 #define INT_TO_HDL(i) (i ? HDL_1 : HDL_0)
 
 // Current/last state of tck, tms, tdi, trst and srst.
-static char state[5] = {HDL_X, HDL_X, HDL_X, HDL_X, HDL_X};
+static char state[5] = {HDL_X, HDL_X, HDL_X, HDL_0, HDL_0};
 
 // Set the state of tck, tms and tdi.
 static void set_state(int tck, int tms, int tdi)
