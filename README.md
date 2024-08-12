@@ -16,7 +16,7 @@ GDB can then connect to OpenOCD as usual and off you go!
 
 ## Getting started
 
-> The following assumes prior knowledge about the general use of ghdl, openocd and gdb. For a more complete example see TBD.
+> The following assumes prior knowledge about the general use of ghdl, openocd and gdb. For a more complete example see `test` subfolder. Especially examine the `run.sh` script that brings it all together.
 
 First, instantiate the `vhpi_jtag` entity in your design (probably an testbench) and drive your JTAG TAP with its signals.
 
@@ -88,7 +88,7 @@ Info : starting gdb server for riscv.cpu on 3333
 All that's left to do is start up gdb and debug away:
 
 ```shell
-gdb -ex 'target extended-remote localhost:3333'
+gdb-multiarch -ex 'target extended-remote localhost:3333'
 ```
 
 
@@ -101,6 +101,7 @@ gdb -ex 'target extended-remote localhost:3333'
 
 ### Similar Projects:
 - Same idea but for Verilog: https://github.com/fjullien/jtag_vpi
+- remote bitbanged JTAG for the rocket-chip (Scala): https://github.com/chipsalliance/rocket-chip/blob/master/src/main/resources/csrc/remote_bitbang.cc
 
 
 ## License
