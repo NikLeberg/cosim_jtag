@@ -11,16 +11,18 @@
 --                          i.e. is doing some clock crossing. Use the DELAY
 --                          generic to enforce this relation. Only set DELAY = 0
 --                          if the driven logic is capable of processing
---                          changing tck, tmss, and tdi signals on each clk.
+--                          changing tck, tms, and tdi signals on each clk.
 --
 -- Author:                  Niklaus Leuenberger <@NikLeberg>
 --
 -- SPDX-License-Identifier: MIT
 --
--- Version:                 0.1
+-- Version:                 0.2
 --
 -- Changes:                 0.1, 2024-08-09, NikLeberg
 --                              initial version
+--        :                 0.2, 2024-08-13, NikLeberg
+--                              fixed warning in vhdl2008, clarified reset level
 -- =============================================================================
 
 LIBRARY ieee;
@@ -35,8 +37,8 @@ ENTITY vhpi_jtag IS
         clk : IN STD_ULOGIC; -- system clock
         tdo : IN STD_ULOGIC;
         tck, tms, tdi : OUT STD_LOGIC;
-        trst : OUT STD_LOGIC; -- JTAG TAP reset 
-        srst : OUT STD_LOGIC -- system reset
+        trst : OUT STD_LOGIC; -- JTAG TAP reset, active-high
+        srst : OUT STD_LOGIC -- system reset, active-high
     );
 END ENTITY;
 
@@ -46,7 +48,7 @@ ARCHITECTURE sim OF vhpi_jtag IS
     TYPE state_ptr_t IS ACCESS state_t;
 
     -- Exchange values between VHDL and C through VHPIDIRECT.
-    FUNCTION tick (
+    IMPURE FUNCTION tick (
         test_data_out : STD_LOGIC -- current value of tdo
     ) RETURN state_ptr_t IS
     BEGIN
