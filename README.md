@@ -101,6 +101,7 @@ gdb-multiarch -ex 'target extended-remote localhost:3333'
 
 ### Similar Projects:
 - Same idea but for Verilog: https://github.com/fjullien/jtag_vpi
+- Same idea but for SystemVerilog: https://github.com/rdiez/jtag_dpi
 - remote bitbanged JTAG for the rocket-chip (Scala): https://github.com/chipsalliance/rocket-chip/blob/master/src/main/resources/csrc/remote_bitbang.cc
 
 
