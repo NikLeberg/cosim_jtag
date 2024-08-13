@@ -6,7 +6,12 @@ Got tired of looking at those pesky waveforms while ultimately debugging your VH
 The communication channel from `gdb` to your softcore roughly looks like this:
 
 ```
-GDB <-TCP-> OpenOCD <-remote bitbang-> vhpi_jtag.c <-VHPI / GHDL-> vhpi_jtag.vhd <-JTAG-> your softcore
++-----+     +---------+     +-------------+     +---------------+     +---------------------+
+| GDB | <-> | OpenOCD | <-> | vhpi_json.c | <-> | vhpi_json.vhd | <-> | JTAG TAP / softcore |
++-----+  :  +---------+  :  +-------------+  :  +---------------+  :  +---------------------+
+        TCP         UNIX socket          VHPIDIRECT              JTAG
+
+[        outside GHDL <<] [>> inside GHDL                                                   ]
 ```
 
 This repository contains a simple VHDL entity `vhpi_jtag` with a corresponding C-API that exposes a named UNIX socket.
