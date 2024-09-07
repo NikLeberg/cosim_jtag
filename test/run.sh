@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# This script is meant to test and showcase the functionality of vhpi_jtag
+# together with neorv32 from https://github.com/stnolting/neorv32 as softcore.
+# The script assumes an installed ghdl with llvm (or gcc) backend (mcode won't
+# work!). This could for example be inside a docker container from image
+# gcr.io/hdl-containers/ghdl/llvm.
+
 set -e
 
 # Install openocd if not existing.
