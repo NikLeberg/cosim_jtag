@@ -17,12 +17,14 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Version:                 0.2
+-- Version:                 0.3
 --
 -- Changes:                 0.1, 2024-08-09, NikLeberg
 --                              initial version
---        :                 0.2, 2024-08-13, NikLeberg
+--                          0.2, 2024-08-13, NikLeberg
 --                              fixed warning in vhdl2008, clarified reset level
+--                          0.3, 2024-09-16, NikLeberg
+--                              simplify counter logic
 -- =============================================================================
 
 LIBRARY ieee;
@@ -57,20 +59,13 @@ ARCHITECTURE sim OF vhpi_jtag IS
     END;
     ATTRIBUTE foreign OF tick : FUNCTION IS "VHPIDIRECT vhpi_jtag_tick";
 
-    SIGNAL delay_count : NATURAL RANGE 0 TO DELAY := 0;
+    SIGNAL delay_count, delay_count_next : NATURAL RANGE 0 TO DELAY := 0;
 
 BEGIN
 
-    delay_counter : PROCESS (clk)
-    BEGIN
-        IF rising_edge(clk) THEN
-            IF delay_count >= DELAY THEN
-                delay_count <= 0;
-            ELSE
-                delay_count <= delay_count + 1;
-            END IF;
-        END IF;
-    END PROCESS delay_counter;
+    delay_count_next <= 0 WHEN delay_count >= DELAY ELSE
+        delay_count + 1;
+    delay_count <= delay_count_next WHEN rising_edge(clk);
 
     jtag_tick : PROCESS (clk)
         VARIABLE state : state_ptr_t;
