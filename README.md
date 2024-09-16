@@ -105,6 +105,7 @@ gdb-multiarch -ex 'target extended-remote localhost:3333'
 - OpenOCD remote_bitbang: https://github.com/openocd-org/openocd/blob/master/doc/manual/jtag/drivers/remote_bitbang.txt
 
 ### Similar Projects:
+- For ModelSim / QuestaSim simulator: https://github.com/NikLeberg/fli_jtag
 - Same idea but for Verilog: https://github.com/fjullien/jtag_vpi
 - Same idea but for SystemVerilog: https://github.com/rdiez/jtag_dpi
 - remote bitbanged JTAG for the rocket-chip (Scala): https://github.com/chipsalliance/rocket-chip/blob/master/src/main/resources/csrc/remote_bitbang.cc
