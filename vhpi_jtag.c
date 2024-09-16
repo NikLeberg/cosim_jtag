@@ -213,7 +213,7 @@ char *vhpi_jtag_tick(char tdo)
         accept_connection();
     }
 
-    // Process data from socked.
+    // Process data from socket.
     if (data_socket != -1)
     {
         process_socket(tdo);
