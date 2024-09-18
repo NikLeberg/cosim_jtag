@@ -45,22 +45,18 @@ ENTITY vhpi_jtag IS
 END ENTITY;
 
 ARCHITECTURE sim OF vhpi_jtag IS
-
-    SUBTYPE state_t IS STD_ULOGIC_VECTOR(0 TO 4); -- tck, tms, tdi, trst, srst
-    TYPE state_ptr_t IS ACCESS state_t;
-
     -- Exchange values between VHDL and C through VHPIDIRECT.
-    IMPURE FUNCTION tick (
-        test_data_out : STD_LOGIC -- current value of tdo
-    ) RETURN state_ptr_t IS
+    PROCEDURE tick (
+        tdo : IN STD_ULOGIC; -- current value of tdo
+        tck, tms, tdi, trst, srst : OUT STD_ULOGIC
+    ) IS
     BEGIN
         -- dummy implementation, gets overwritten by C function vhpi_jtag_tick
         REPORT "VHPIDIRECT vhpi_jtag_tick" SEVERITY failure;
     END;
-    ATTRIBUTE foreign OF tick : FUNCTION IS "VHPIDIRECT vhpi_jtag_tick";
+    ATTRIBUTE foreign OF tick : PROCEDURE IS "VHPIDIRECT vhpi_jtag_tick";
 
     SIGNAL delay_count, delay_count_next : NATURAL RANGE 0 TO DELAY := 0;
-
 BEGIN
 
     delay_count_next <= 0 WHEN delay_count >= DELAY ELSE
@@ -68,16 +64,16 @@ BEGIN
     delay_count <= delay_count_next WHEN rising_edge(clk);
 
     jtag_tick : PROCESS (clk)
-        VARIABLE state : state_ptr_t;
+        VARIABLE v_tck, v_tms, v_tdi, v_trst, v_srst : STD_ULOGIC;
     BEGIN
         IF rising_edge(clk) THEN
             IF delay_count = 0 THEN
-                state := tick(tdo);
-                tck <= state(0);
-                tms <= state(1);
-                tdi <= state(2);
-                trst <= state(3);
-                srst <= state(4);
+                tick(tdo, v_tck, v_tms, v_tdi, v_trst, v_srst);
+                tck <= v_tck;
+                tms <= v_tms;
+                tdi <= v_tdi;
+                trst <= v_trst;
+                srst <= v_srst;
             END IF;
         END IF;
     END PROCESS jtag_tick;
