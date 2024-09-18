@@ -12,7 +12,7 @@
  * Version  Date        Author     Detail
  * 0.1      2024-08-09  NikLeberg  initial version
  * 0.2      2024-08-13  NikLeberg  initialize reset signals to '0' / logic low
- * 
+ *
  */
 
 #include <stdio.h>
@@ -82,44 +82,48 @@ static void accept_connection(void)
     }
 }
 
-// Possible states of an VHDL STD_ULOGIC according to GHDL.
+// Possible states of an VHDL STD_ULOGIC enumeration.
 enum HDL_LOGIC_STATES
 {
-    HDL_U = 0,
-    HDL_X = 1,
-    HDL_0 = 2,
-    HDL_1 = 3,
-    HDL_Z = 4,
-    HDL_W = 5,
-    HDL_L = 6,
-    HDL_H = 7,
-    HDL_D = 8
+    HDL_U = 0, // Uninitialized
+    HDL_X = 1, // Forcing Unknown
+    HDL_0 = 2, // Forcing 0
+    HDL_1 = 3, // Forcing 1
+    HDL_Z = 4, // High Impedance
+    HDL_W = 5, // Weak Unknown
+    HDL_L = 6, // Weak 0
+    HDL_H = 7, // Weak 1
+    HDL_D = 8  // Don't care
 };
-#define HDL_TO_INT(hdl) (hdl == HDL_1 || hdl == HDL_H)
-#define INT_TO_HDL(i) (i ? HDL_1 : HDL_0)
+#define HDL_TO_INT(hdl) ((hdl) == HDL_1 || (hdl) == HDL_H)
+#define INT_TO_HDL(i) (((i) != 0) ? HDL_1 : HDL_0)
+
+typedef struct
+{
+    // tdo is received from VHDL on every tick, not required to keep state
+    char tck;
+    char tms;
+    char tdi;
+    char trst;
+    char srst;
+} state_t;
 
 // Current/last state of tck, tms, tdi, trst and srst.
-static char state[5] = {HDL_X, HDL_X, HDL_X, HDL_0, HDL_0};
+static state_t state = {HDL_X, HDL_X, HDL_X, HDL_0, HDL_0};
 
-// Set the state of tck, tms and tdi.
-static void set_state(int tck, int tms, int tdi)
+static void drive_from_state(state_t *state, char *tck, char *tms, char *tdi, char *trst, char *srst)
 {
-    state[0] = INT_TO_HDL(tck);
-    state[1] = INT_TO_HDL(tms);
-    state[2] = INT_TO_HDL(tdi);
+    *tck = state->tck;
+    *tms = state->tms;
+    *tdi = state->tdi;
+    *trst = state->trst;
+    *srst = state->srst;
 }
 
-// Set the state of trst and srst.
-static void set_reset(int trst, int srst)
-{
-    state[3] = INT_TO_HDL(trst);
-    state[4] = INT_TO_HDL(srst);
-}
-
-static void process_socket(char tdo)
+static void process_socket(char tdo, state_t *state)
 {
     int ret;
-    char buffer;
+    char buffer, val;
 
     // receive data from openocd through socket
     ret = read(data_socket, &buffer, 1);
@@ -142,8 +146,8 @@ static void process_socket(char tdo)
     case 'b': // Blink off
         break;
     case 'R': // Read request
-        buffer = HDL_TO_INT(tdo) ? '1' : '0';
-        ret = write(data_socket, &buffer, 1);
+        val = HDL_TO_INT(tdo) ? '1' : '0';
+        ret = write(data_socket, &val, 1);
         if (ret == -1)
         {
             fprintf(stderr, "vhpi_jtag: process_socket failed to write: %s (%d)\n", strerror(errno), errno);
@@ -156,41 +160,25 @@ static void process_socket(char tdo)
         data_socket = -1;
         break;
     case '0': // Write 0 0 0
-        set_state(0, 0, 0);
-        break;
     case '1': // Write 0 0 1
-        set_state(0, 0, 1);
-        break;
     case '2': // Write 0 1 0
-        set_state(0, 1, 0);
-        break;
     case '3': // Write 0 1 1
-        set_state(0, 1, 1);
-        break;
     case '4': // Write 1 0 0
-        set_state(1, 0, 0);
-        break;
     case '5': // Write 1 0 1
-        set_state(1, 0, 1);
-        break;
     case '6': // Write 1 1 0
-        set_state(1, 1, 0);
-        break;
     case '7': // Write 1 1 1
-        set_state(1, 1, 1);
+        val = buffer - '0';
+        state->tck = INT_TO_HDL(val & 0b100);
+        state->tms = INT_TO_HDL(val & 0b010);
+        state->tdi = INT_TO_HDL(val & 0b001);
         break;
     case 'r': // Reset 0 0
-        set_reset(0, 0);
-        break;
     case 's': // Reset 0 1
-        set_reset(0, 1);
-        break;
     case 't': // Reset 1 0
-        set_reset(1, 0);
-        break;
     case 'u': // Reset 1 1
-        set_reset(1, 1);
-        break;
+        val = buffer - 'r';
+        state->trst = INT_TO_HDL(val & 0b10);
+        state->srst = INT_TO_HDL(val & 0b01);
     default:
         break;
     }
@@ -199,7 +187,7 @@ static void process_socket(char tdo)
 // VHPI interface to VHDL. This is our "main" entrypoint. GHDL binds to this
 // function and calls it on each rising edge of the simulated clock. See VHDL
 // side of the interface in file "vhpi_jtag.vhd".
-char *vhpi_jtag_tick(char tdo)
+void vhpi_jtag_tick(char tdo, char *tck, char *tms, char *tdi, char *trst, char *srst)
 {
     // Create and open a named file socked if not already open.
     if (listen_socket == -1)
@@ -216,8 +204,9 @@ char *vhpi_jtag_tick(char tdo)
     // Process data from socket.
     if (data_socket != -1)
     {
-        process_socket(tdo);
+        process_socket(tdo, &state);
     }
 
-    return state;
+    // Always "drive" the output signals.
+    drive_from_state(&state, tck, tms, tdi, trst, srst);
 }
