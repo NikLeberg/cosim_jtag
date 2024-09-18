@@ -1,10 +1,10 @@
 /**
- * @file vhpi_jtag.c
+ * @file cosim_jtag.c
  * @author Niklaus Leuenberger <@NikLeberg>
- * @brief Implements interface between GHDL (through VHPIDIRCET) and OpenOCD
- *        (through remote bitbanging socket).
- * @version 0.2
- * @date 2024-08-13
+ * @brief Implements interface between VHDL (through VHPIDIRCET or MTI FLI) and
+ *        OpenOCD (through remote bitbanging socket).
+ * @version 0.3
+ * @date 2024-09-17
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,6 +12,8 @@
  * Version  Date        Author     Detail
  * 0.1      2024-08-09  NikLeberg  initial version
  * 0.2      2024-08-13  NikLeberg  initialize reset signals to '0' / logic low
+ * 0.3      2024-09-17  NikLeberg  integrate with ModelSim / QuestaSim FLT
+ *                                 interface and rename to cosim_jtag
  *
  */
 
@@ -24,7 +26,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define SOCKET_NAME "/tmp/vhpi_jtag.sock"
+#define SOCKET_NAME "/tmp/cosim_jtag.sock"
 static int listen_socket = -1;
 static int data_socket = -1;
 
@@ -37,7 +39,7 @@ static int create_socket(void)
     listen_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (listen_socket == -1)
     {
-        fprintf(stderr, "vhpi_jtag: create_socket failed to make socket: %s (%d)\n", strerror(errno), errno);
+        fprintf(stderr, "cosim_jtag: create_socket failed to make socket: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 
@@ -49,7 +51,7 @@ static int create_socket(void)
                sizeof(struct sockaddr_un));
     if (ret == -1)
     {
-        fprintf(stderr, "vhpi_jtag: create_socket failed to bind socket: %s (%d)\n", strerror(errno), errno);
+        fprintf(stderr, "cosim_jtag: create_socket failed to bind socket: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 
@@ -60,7 +62,7 @@ static int create_socket(void)
     ret = listen(listen_socket, 0);
     if (ret == -1)
     {
-        fprintf(stderr, "vhpi_jtag: create_socket failed to listen on socket: %s (%d)\n", strerror(errno), errno);
+        fprintf(stderr, "cosim_jtag: create_socket failed to listen on socket: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 }
@@ -72,13 +74,13 @@ static void accept_connection(void)
     {
         if (errno != EAGAIN)
         {
-            fprintf(stderr, "vhpi_jtag: accept_connection failed with: %s (%d)\n", strerror(errno), errno);
+            fprintf(stderr, "cosim_jtag: accept_connection failed with: %s (%d)\n", strerror(errno), errno);
             exit(EXIT_FAILURE);
         }
     }
     else
     {
-        fprintf(stderr, "vhpi_jtag: remote connected\n");
+        fprintf(stderr, "cosim_jtag: remote connected\n");
     }
 }
 
@@ -129,7 +131,7 @@ static void process_socket(char tdo, state_t *state)
     ret = read(data_socket, &buffer, 1);
     if (ret == -1)
     {
-        fprintf(stderr, "vhpi_jtag: process_socket failed to read: %s (%d)\n", strerror(errno), errno);
+        fprintf(stderr, "cosim_jtag: process_socket failed to read: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 
@@ -150,12 +152,12 @@ static void process_socket(char tdo, state_t *state)
         ret = write(data_socket, &val, 1);
         if (ret == -1)
         {
-            fprintf(stderr, "vhpi_jtag: process_socket failed to write: %s (%d)\n", strerror(errno), errno);
+            fprintf(stderr, "cosim_jtag: process_socket failed to write: %s (%d)\n", strerror(errno), errno);
             exit(EXIT_FAILURE);
         }
         break;
     case 'Q': // Quit request
-        fprintf(stderr, "vhpi_jtag: remote disconnected\n");
+        fprintf(stderr, "cosim_jtag: remote disconnected\n");
         close(data_socket);
         data_socket = -1;
         break;
@@ -184,10 +186,11 @@ static void process_socket(char tdo, state_t *state)
     }
 }
 
-// VHPI interface to VHDL. This is our "main" entrypoint. GHDL binds to this
-// function and calls it on each rising edge of the simulated clock. See VHDL
-// side of the interface in file "vhpi_jtag.vhd".
-void vhpi_jtag_tick(char tdo, char *tck, char *tms, char *tdi, char *trst, char *srst)
+// Interface to VHDL. This is our cyclic "tick" entrypoint. Simulators bind to
+// this function and call it on each rising edge of the simulated clock. See
+// VHDL side of the interface in file "cosim_jtag.vhd" together with simulator
+// specific "cosim_jtag_<simulator_interface>.vhd" package file.
+void cosim_jtag_tick(char tdo, char *tck, char *tms, char *tdi, char *trst, char *srst)
 {
     // Create and open a named file socked if not already open.
     if (listen_socket == -1)
