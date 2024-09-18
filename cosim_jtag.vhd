@@ -1,10 +1,13 @@
 -- =============================================================================
--- File:                    vhpi_jtag.vhdl
+-- File:                    cosim_jtag.vhdl
 --
--- Entity:                  vhpi_jtag
+-- Entity:                  cosim_jtag
 --
--- Description:             Simulation only virtual JTAG "connector". Allows to
---                          connect to the running GHDL sim through OpenOCD.
+-- Description:             Co-simulation virtual JTAG "connector". Allows to
+--                          connect to the running simulation trough foreign
+--                          language interfaces like:
+--                           - VHPIDIRECT (e.g. GHDL)
+--                           - MTI FLI (ModelSim or QuestaSim)
 --
 -- Note:                    Logic that is driven by this JTAG "connector" is
 --                          usually assuming some relation between clk and tck
@@ -17,7 +20,7 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Version:                 0.3
+-- Version:                 0.4
 --
 -- Changes:                 0.1, 2024-08-09, NikLeberg
 --                              initial version
@@ -25,44 +28,40 @@
 --                              fixed warning in vhdl2008, clarified reset level
 --                          0.3, 2024-09-16, NikLeberg
 --                              simplify counter logic
+--                          0.4, 2024-09-18, NikLeberg
+--                              integrate fli interface, rename to cosim_jtag
 -- =============================================================================
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 
-ENTITY vhpi_jtag IS
+LIBRARY cosim;
+USE cosim.cosim_jtag_pkg.ALL;
+
+ENTITY cosim_jtag IS
     GENERIC (
         DELAY : NATURAL := 3 -- delay in counts of clk, 0 is no delay
     );
     PORT (
-        clk : IN STD_ULOGIC; -- system clock
-        tdo : IN STD_ULOGIC;
+        clk           : IN STD_ULOGIC; -- system clock
+        tdo           : IN STD_ULOGIC;
         tck, tms, tdi : OUT STD_LOGIC;
-        trst : OUT STD_LOGIC; -- JTAG TAP reset, active-high
-        srst : OUT STD_LOGIC -- system reset, active-high
+        trst          : OUT STD_LOGIC; -- JTAG TAP reset, active-high
+        srst          : OUT STD_LOGIC  -- system reset, active-high
     );
 END ENTITY;
 
-ARCHITECTURE sim OF vhpi_jtag IS
-    -- Exchange values between VHDL and C through VHPIDIRECT.
-    PROCEDURE tick (
-        tdo : IN STD_ULOGIC; -- current value of tdo
-        tck, tms, tdi, trst, srst : OUT STD_ULOGIC
-    ) IS
-    BEGIN
-        -- dummy implementation, gets overwritten by C function vhpi_jtag_tick
-        REPORT "VHPIDIRECT vhpi_jtag_tick" SEVERITY failure;
-    END;
-    ATTRIBUTE foreign OF tick : PROCEDURE IS "VHPIDIRECT vhpi_jtag_tick";
-
+ARCHITECTURE sim OF cosim_jtag IS
     SIGNAL delay_count, delay_count_next : NATURAL RANGE 0 TO DELAY := 0;
 BEGIN
 
+    -- Delay calls to tick procedure to slow down tck in respect to clk.
     delay_count_next <= 0 WHEN delay_count >= DELAY ELSE
         delay_count + 1;
     delay_count <= delay_count_next WHEN rising_edge(clk);
 
+    -- Call into C-function and exchange current JTAG signal values.
     jtag_tick : PROCESS (clk)
         VARIABLE v_tck, v_tms, v_tdi, v_trst, v_srst : STD_ULOGIC;
     BEGIN
