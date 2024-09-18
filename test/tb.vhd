@@ -3,7 +3,7 @@
 --
 -- Entity:                  tb
 --
--- Description:             Testbench for vhpi_jtag functionality. Instantiates
+-- Description:             Testbench for cosim_jtag functionality. Instantiates
 --                          a NEORV32 softcore and lets us connect to it via
 --                          OpenOCD to ultimately debug it with GDB.
 --
@@ -20,6 +20,8 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
+
+LIBRARY cosim;
 
 LIBRARY neorv32;
 USE neorv32.neorv32_package.ALL;
@@ -38,13 +40,13 @@ BEGIN
     -- Infinite clock.
     clk <= NOT clk AFTER 0.5 * CLK_PERIOD;
 
-    vhpi_jtag_inst : ENTITY work.vhpi_jtag
+    cosim_jtag_inst : ENTITY cosim.cosim_jtag
         PORT MAP(
-            clk => clk,
-            tdo => jtag_tdo,
-            tck => jtag_tck,
-            tms => jtag_tms,
-            tdi => jtag_tdi,
+            clk  => clk,
+            tdo  => jtag_tdo,
+            tck  => jtag_tck,
+            tms  => jtag_tms,
+            tdi  => jtag_tdi,
             trst => OPEN,
             srst => jtag_srst
         );
@@ -54,21 +56,21 @@ BEGIN
     neorv32_inst : ENTITY neorv32.neorv32_top
         GENERIC MAP(
             -- General --
-            CLOCK_FREQUENCY => (1 sec / CLK_PERIOD),
-            JEDEC_ID => "00000000000",
+            CLOCK_FREQUENCY   => (1 sec / CLK_PERIOD),
+            JEDEC_ID          => "00000000000",
             INT_BOOTLOADER_EN => true,
             -- On-Chip Debugger (OCD) --
             ON_CHIP_DEBUGGER_EN => true,
             -- Internal Instruction memory --
-            MEM_INT_IMEM_EN => true,
+            MEM_INT_IMEM_EN   => true,
             MEM_INT_IMEM_SIZE => 64 * 1024,
             -- Internal Data memory --
-            MEM_INT_DMEM_EN => true,
+            MEM_INT_DMEM_EN   => true,
             MEM_INT_DMEM_SIZE => 64 * 1024
         )
         PORT MAP(
             -- Global control --
-            clk_i => clk,
+            clk_i  => clk,
             rstn_i => rstn,
             -- JTAG on-chip debugger interface (available if ON_CHIP_DEBUGGER_EN = true) --
             jtag_tck_i => jtag_tck,
