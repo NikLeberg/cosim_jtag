@@ -3,8 +3,8 @@
  * @author Niklaus Leuenberger <@NikLeberg>
  * @brief Implements interface between VHDL (through VHPIDIRCET or MTI FLI) and
  *        OpenOCD (through remote bitbanging socket).
- * @version 0.3
- * @date 2024-09-17
+ * @version 0.4
+ * @date 2024-09-20
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,6 +14,7 @@
  * 0.2      2024-08-13  NikLeberg  initialize reset signals to '0' / logic low
  * 0.3      2024-09-17  NikLeberg  integrate with ModelSim / QuestaSim FLT
  *                                 interface and rename to cosim_jtag
+ * 0.4      2024-08-20  NikLeberg  print success message on socket creation
  *
  */
 
@@ -65,6 +66,8 @@ static int create_socket(void)
         fprintf(stderr, "cosim_jtag: create_socket failed to listen on socket: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
+    
+    fputs("cosim_jtag: created unix socket at: " SOCKET_NAME "\n", stderr);
 }
 
 static void accept_connection(void)
