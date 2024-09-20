@@ -1,3 +1,22 @@
+# neorv32 git clone
+neorv32_src
+
+# compiled library
+*.so
+
+# GHDL build files
 build
 *.o
 tb
+
+# ModelSim / QuestaSim build files
+work
+cosim
+neorv32
+modelsim.ini
+transcript
+
+# NVC build files
+work
+cosim
+neorv32
