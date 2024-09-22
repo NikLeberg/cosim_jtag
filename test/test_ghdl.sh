@@ -48,7 +48,7 @@ CORE_SRCS="${FILE_LIST//NEORV32_RTL_PATH_PLACEHOLDER/"$NEORV32_LOCAL_RTL"}"
 ghdl -a --work=neorv32 --workdir=build $CORE_SRCS
 
 # Analyze cosim_jtag design files.
-# -> GHDL implements non-standart VHPIDIRECT, so we must use cosim_jtag_ghdl.vhd
+# -> GHDL implements non-standard VHPIDIRECT, so we must use cosim_jtag_ghdl.vhd
 #    as package.
 ghdl -a --work=cosim --workdir=build ../cosim_jtag_ghdl.vhd ../cosim_jtag.vhd
 

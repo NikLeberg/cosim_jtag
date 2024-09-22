@@ -4,7 +4,7 @@
 # together with NEORV32 from https://github.com/stnolting/neorv32 as softcore by
 # utilizing the NVC VHDL Procedural Interface (VHPIDIRECT).
 
-# Note: NVC implements the same non-standart way of VHPIDIRECT as GHDL does. As
+# Note: NVC implements the same non-standard way of VHPIDIRECT as GHDL does. As
 # such both are compatible with eachother.
 
 set -e
@@ -48,7 +48,7 @@ CORE_SRCS="${FILE_LIST//NEORV32_RTL_PATH_PLACEHOLDER/"$NEORV32_LOCAL_RTL"}"
 nvc --work=neorv32 -a $CORE_SRCS
 
 # Analyze cosim_jtag design files.
-# -> NVC supports the same non-standart VHPIDIRECT as GHDL, so we can use
+# -> NVC supports the same non-standard VHPIDIRECT as GHDL, so we can use
 #    cosim_jtag_ghdl.vhd as package.
 nvc --work=cosim -a ../cosim_jtag_ghdl.vhd ../cosim_jtag.vhd
 

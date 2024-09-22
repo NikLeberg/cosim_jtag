@@ -7,9 +7,9 @@
 --                          foreign interface from VHDL to C. Utilizes the
 --                          proprietary Model Technology Incorporated (MIT)
 --                          Foreign Language Interface (FLI). It behaves almost
---                          identical to standart VHPIDIRECT if used on
---                          procedures. The only difference is the value of the
---                          "foreign" attribute.
+--                          identical to GHDL implementation of non-compliant
+--                          VHPIDIRECT if used on procedures. The only
+--                          difference is the value of the "foreign" attribute.
 --
 -- Author:                  Niklaus Leuenberger <@NikLeberg>
 --

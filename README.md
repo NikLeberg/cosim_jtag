@@ -30,7 +30,7 @@ GDB can then connect to OpenOCD as usual and off you go!
 | [nvc](https://github.com/nickg/nvc) | `VHPIDIRECT`<sup><a href="#sup2" id="ref2">[2]</a></sup> | :white_check_mark: | _1m 32s_ |
 
 <sup id="sup1">[1] Time it took to analyze, elaborate, simulate and debug with GDB an example softcore-system based on [NEORV32](https://github.com/stnolting/neorv32). See `test_<simulator>.sh` scripts.<a href="#ref1" title="Jump back.">↩</a></sup>
-<sup id="sup2">[2] Both _ghdl_ and _nvc_ implement a non-standart compliant `VHPIDIRECT` interface (in fact _nvc_'s is based on _ghdl_'s for portability).<a href="#ref2" title="Jump back.">↩</a></sup>
+<sup id="sup2">[2] Both _ghdl_ and _nvc_ implement a non-standard compliant `VHPIDIRECT` interface (in fact _nvc_'s is based on _ghdl_'s for portability).<a href="#ref2" title="Jump back.">↩</a></sup>
 
 Feel free to open an issue to request support for additional simulators or interfaces.
 

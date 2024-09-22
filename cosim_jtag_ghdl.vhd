@@ -6,8 +6,8 @@
 -- Description:             GHDL specific implementation of foreign interface
 --                          from VHDL to C. Although the below "foreign"
 --                          attribute seems to be of VHPI direct calling
---                          standart "VHPIDIRECT", the implementation of VHPI in
---                          GHDL is not standart conformant.
+--                          standard "VHPIDIRECT", the implementation of VHPI in
+--                          GHDL is not standard conformant.
 --
 -- Author:                  Niklaus Leuenberger <@NikLeberg>
 --
