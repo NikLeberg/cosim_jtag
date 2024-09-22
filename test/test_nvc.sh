@@ -2,10 +2,12 @@
 
 # This script is meant to test and showcase the functionality of cosim_jtag
 # together with NEORV32 from https://github.com/stnolting/neorv32 as softcore by
-# utilizing the NVC VHDL Procedural Interface (VHPIDIRECT).
+# utilizing the standard VHDL Procedural Interface (VHPI) with NVC.
 
-# Note: NVC implements the same non-standard way of VHPIDIRECT as GHDL does. As
-# such both are compatible with eachother.
+# Note: NVC implements the official IEEE standard VHPI if used with VHDL
+# "foreign" attribute "VHPI". If the attribute is set to "VHPIDIRECT" or "GHDL",
+# NVC is actually implementing the same non-standard way of VHPIDIRECT as GHDL
+# does. As such, if you want to use cosim_jtag with NVC you get to choose!
 
 set -e
 set -x # local command echo
@@ -48,12 +50,14 @@ CORE_SRCS="${FILE_LIST//NEORV32_RTL_PATH_PLACEHOLDER/"$NEORV32_LOCAL_RTL"}"
 nvc --work=neorv32 -a $CORE_SRCS
 
 # Analyze cosim_jtag design files.
-# -> NVC supports the same non-standard VHPIDIRECT as GHDL, so we can use
-#    cosim_jtag_ghdl.vhd as package.
-nvc --work=cosim -a ../cosim_jtag_ghdl.vhd ../cosim_jtag.vhd
+# -> NVC supports the VHPI standard, so we can use cosim_jtag_vhpi.vhd as pkg.
+nvc --work=cosim -a ../cosim_jtag_vhpi.vhd ../cosim_jtag.vhd
 
 # Compile our C file into a shared library.
-gcc -shared -fPIC -o cosim_jtag.so ../cosim_jtag.c
+# -> Precompiler flag "USE_VHPI" enables the (complex) VHPI implementation.
+# -> If NVC is installed system-wide then the following will find the
+#    "vhpi_user.h" header file. Otherwise add "-I<nvc_install_path>/include".
+gcc -shared -fPIC -DUSE_VHPI -o cosim_jtag.so ../cosim_jtag.c
 
 # Analyze our testbench design file.
 nvc -L. -a tb.vhd
