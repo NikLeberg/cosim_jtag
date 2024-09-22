@@ -1,7 +1,7 @@
 # cosim_jtag
 > Connect to your VHDL simulation via JTAG!
 
-Got tired of looking at those pesky waveforms while ultimately debugging your VHDL softcore in simulation? Ever wished you could just use the glory that is the gnu debugger `GDB` without actually having to use any real hardware? Well here is your answer. With the magic that are procedural interfaces like `VHPIDIRECT` or the proprietary `MTI FLI`, we can interface from the running simulation to other software. That is Co-Simulation.
+Got tired of looking at those pesky waveforms while ultimately debugging your VHDL softcore in simulation? Ever wished you could just use the glory that is the gnu debugger `GDB` without actually having to use any real hardware? Well here is your answer. With the magic that are procedural interfaces like `VHPI` or the proprietary `MTI FLI`, we can interface from the running simulation to other software. That is Co-Simulation.
 
 The communication channel from `GDB` to your softcore roughly looks like this:
 
@@ -9,8 +9,9 @@ The communication channel from `GDB` to your softcore roughly looks like this:
 +-----+     +---------+     +--------------+     +----------------+     +---------------------+
 | GDB | <-> | OpenOCD | <-> | cosim_json.c | <-> | cosim_json.vhd | <-> | JTAG TAP / softcore |
 +-----+  :  +---------+  :  +--------------+  :  +----------------+  :  +---------------------+
-        TCP         UNIX socket           VHPIDIRECT               JTAG
-                                          or MTI FLI
+        TCP         UNIX socket             VHPI                   JTAG
+                                         or VHPIDIRECT
+                                         or MTI FLI
 
 [   outside simulator <<] [>> inside simulator                                                ]
 ```
@@ -26,11 +27,14 @@ GDB can then connect to OpenOCD as usual and off you go!
 |---|---|---|---|
 | ModelSim | `MTI FLI` | :x: | ? |
 | QuestaSim | `MTI FLI` | :white_check_mark: | _8m 46s_ |
-| [ghdl](https://github.com/ghdl/ghdl) | `VHPIDIRECT`<sup><a href="#sup2" id="ref2">[2]</a></sup> | :white_check_mark: | _6m 38s_ |
-| [nvc](https://github.com/nickg/nvc) | `VHPIDIRECT`<sup><a href="#sup2" id="ref2">[2]</a></sup> | :white_check_mark: | _1m 32s_ |
+| [ghdl](https://github.com/ghdl/ghdl) | `GHDL`<sup><a href="#sup2" id="ref2">[2]</a></sup> | :white_check_mark: | _6m 38s_ |
+| [nvc](https://github.com/nickg/nvc) | `VHPI` or `GHDL`<sup><a href="#sup3" id="ref3">[3]</a></sup> | :white_check_mark: | _1m 32s_ |
 
 <sup id="sup1">[1] Time it took to analyze, elaborate, simulate and debug with GDB an example softcore-system based on [NEORV32](https://github.com/stnolting/neorv32). See `test_<simulator>.sh` scripts.<a href="#ref1" title="Jump back.">↩</a></sup>
-<sup id="sup2">[2] Both _ghdl_ and _nvc_ implement a non-standard compliant `VHPIDIRECT` interface (in fact _nvc_'s is based on _ghdl_'s for portability).<a href="#ref2" title="Jump back.">↩</a></sup>
+
+<sup id="sup2">[2] _ghdl_ implements a non-standard compliant `VHPIDIRECT` interface where instead of passing a single `const vhpiCbDataT*`, all arguments are passed more or less _1:1_.<a href="#ref2" title="Jump back.">↩</a></sup>
+
+<sup id="sup3">[3] For portability, _nvc_ implements the same non-standard compliant `VHPIDIRECT` interface as _ghdl_ does. But it also implements standard compliant `VHPI`.<a href="#ref3" title="Jump back.">↩</a></sup>
 
 Feel free to open an issue to request support for additional simulators or interfaces.
 
@@ -46,16 +50,20 @@ First, analyze the design files into the `cosim` library. But besides the main `
 |---|---|---|
 | ModelSim | `cosim_jtag_fli.vhd` | `vcom -work cosim cosim_jtag.vhd cosim_jtag_fli.vhd` |
 | QuestaSim | `cosim_jtag_fli.vhd` | `vcom -work cosim cosim_jtag.vhd cosim_jtag_fli.vhd` |
-| ghdl<sup><a href="#sup3" id="ref3">[3]</a></sup> | `cosim_jtag_ghdl.vhd` | `ghdl -a --work=cosim cosim_jtag.vhd cosim_jtag_ghdl.vhd` |
-| nvc | `cosim_jtag_ghdl.vhd` | `nvc --work=cosim -a cosim_jtag.vhd cosim_jtag_ghdl.vhd` |
+| ghdl<sup><a href="#sup4" id="ref4">[4]</a></sup> | `cosim_jtag_ghdl.vhd` | `ghdl -a --work=cosim cosim_jtag.vhd cosim_jtag_ghdl.vhd` |
+| nvc | <center>`cosim_jtag_vhpi.vhd`<br>OR<sup><a href="#sup5" id="ref5">[5]</a></sup><br>`cosim_jtag_ghdl.vhd`</center> | <center>`nvc --work=cosim -a cosim_jtag.vhd cosim_jtag_vhpi.vhd`<br>OR<br>`nvc --work=cosim -a cosim_jtag.vhd cosim_jtag_ghdl.vhd`</center> |
 
-<sup id="sup3">[3] ghdl with the mcode backend does currently not support `VHPIDIRECT`. Elaboration is expected to fail. Use LLVM or GCC backends.<a href="#ref3" title="Jump back.">↩</a></sup>
+<sup id="sup4">[4] ghdl with the mcode backend does currently not support `VHPIDIRECT`. Elaboration is expected to fail. Use LLVM or GCC backends.<a href="#ref4" title="Jump back.">↩</a></sup>
+
+<sup id="sup5">[5] nvc supports both, standard `VHPI` or ghdl specific `VHPIDIRECT`. The _ghdl-way_ is a bit simpler and may be a tiny bit faster to simulate.<a href="#ref5" title="Jump back.">↩</a></sup>
 
 Now, compile the C interface in `cosim_jtag.c` into a shared library:
 
 ```bash
 gcc -shared -fPIC -o cosim_jtag.so cosim_jtag.c
 ```
+
+If you use standard VHPI, you have to add precompiler flag `-DUSE_VHPI` to enable the (complex) VHPI abstraction layer. You may also have to add an include path to the `vhpi_user.h` header file of your simulator vendor with `-I<path_to_simulator>/include`.
 
 Next, add the `cosim` library to your design (probably a testbench) and instantiate the `cosim_jtag` entity. Drive your JTAG TAP with its signals.
 
@@ -75,6 +83,9 @@ cosim_jtag_inst : entity cosim.cosim_jtag
     srst => open  -- optional
   );
 ```
+
+> [!NOTE]
+> Currently, only a single instance of the `cosim_jtag` entity is supported. If you require multiple simulated JTAG _connectors_ then, first, I want to see your use-case, seems pretty cool, second, open an issue. It will not be that hard to implement but complicate things a bit.
 
 After also analyzing your own VHDL sources, elaborate your toplevel (assuming here file `tb.vhd` with toplevel `tb`). This process is simulator specific. For example with ghdl:
 
