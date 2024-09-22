@@ -9,12 +9,15 @@
 --                           - VHPIDIRECT (e.g. GHDL)
 --                           - MTI FLI (ModelSim or QuestaSim)
 --
--- Note:                    Logic that is driven by this JTAG "connector" is
+-- Note #1                  Logic that is driven by this JTAG "connector" is
 --                          usually assuming some relation between clk and tck
 --                          i.e. is doing some clock crossing. Use the DELAY
 --                          generic to enforce this relation. Only set DELAY = 0
 --                          if the driven logic is capable of processing
 --                          changing tck, tms, and tdi signals on each clk.
+--
+-- Note #2:                 Only a single instance of this entity may ever be in
+--                          a design (for now).
 --
 -- Author:                  Niklaus Leuenberger <@NikLeberg>
 --
