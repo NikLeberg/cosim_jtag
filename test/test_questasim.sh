@@ -25,11 +25,15 @@ fi
 # packages to run the full example.
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
     git \
     gcc \
     libc-dev \
     openocd \
     gdb-multiarch
+
+# The docker image may have outdated certificates. Update them.
+update-ca-certificates
 
 # Clone the NEORV32 softcore and roll-back to a specific stable commit.
 if [ ! -d "./neorv32_src" ]; then
