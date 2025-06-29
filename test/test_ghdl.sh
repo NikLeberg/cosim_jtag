@@ -14,7 +14,7 @@ if [ -z "$IN_DOCKER" ]; then
         --volume $(realpath ..):/work \
         --workdir /work/test \
         --entrypoint bash \
-        gcr.io/hdl-containers/ghdl/llvm \
+        ghdl/ghdl:6.0.0-dev-llvm-ubuntu-24.04 \
         -c "/work/test/test_ghdl.sh"
 
     exit 0
