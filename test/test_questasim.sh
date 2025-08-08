@@ -59,13 +59,13 @@ vcom -work neorv32 -autoorder $CORE_SRCS
 
 # Compile cosim_jtag design files.
 # -> ModelSim/QuestaSim requires FLI, so we must use cosim_jtag_fli.vhd as pkt.
-vcom -work cosim ../cosim_jtag_fli.vhd ../cosim_jtag.vhd
+vcom -work cosim ../src/jtag/cosim_jtag_fli.vhd ../src/jtag/cosim_jtag.vhd
 
 # Compile our testbench design file.
 vcom tb.vhd
 
 # Compile our C file into a shared library.
-gcc -shared -fPIC -o cosim_jtag.so ../cosim_jtag.c
+gcc -shared -fPIC -o cosim_jtag.so ../src/jtag/cosim_jtag.c
 
 # Run the simulation in the background.
 # -> Shared library "cosim_jtag.so" is automatically loaded.

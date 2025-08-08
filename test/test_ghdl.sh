@@ -54,10 +54,10 @@ ghdl -a --work=neorv32 --workdir=build $CORE_SRCS
 # Analyze cosim_jtag design files.
 # -> GHDL implements non-standard VHPIDIRECT, so we must use cosim_jtag_ghdl.vhd
 #    as package.
-ghdl -a --work=cosim --workdir=build ../cosim_jtag_ghdl.vhd ../cosim_jtag.vhd
+ghdl -a --work=cosim --workdir=build ../src/jtag/cosim_jtag_ghdl.vhd ../src/jtag/cosim_jtag.vhd
 
 # Compile our C file into a shared library.
-gcc -shared -fPIC -o cosim_jtag.so ../cosim_jtag.c
+gcc -shared -fPIC -o cosim_jtag.so ../src/jtag/cosim_jtag.c
 
 # Analyze our testbench design file.
 ghdl -a -Pbuild --workdir=build tb.vhd

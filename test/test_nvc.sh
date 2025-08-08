@@ -55,13 +55,13 @@ nvc --work=neorv32 -a $CORE_SRCS
 
 # Analyze cosim_jtag design files.
 # -> NVC supports the VHPI standard, so we can use cosim_jtag_vhpi.vhd as pkg.
-nvc --work=cosim -a ../cosim_jtag_vhpi.vhd ../cosim_jtag.vhd
+nvc --work=cosim -a ../src/jtag/cosim_jtag_vhpi.vhd ../src/jtag/cosim_jtag.vhd
 
 # Compile our C file into a shared library.
 # -> Precompiler flag "USE_VHPI" enables the (complex) VHPI implementation.
 # -> If NVC is installed system-wide then the following will find the
 #    "vhpi_user.h" header file. Otherwise add "-I<nvc_install_path>/include".
-gcc -shared -fPIC -DUSE_VHPI -o cosim_jtag.so ../cosim_jtag.c
+gcc -shared -fPIC -DUSE_VHPI -o cosim_jtag.so ../src/jtag/cosim_jtag.c
 
 # Analyze our testbench design file.
 nvc -L. -a tb.vhd
