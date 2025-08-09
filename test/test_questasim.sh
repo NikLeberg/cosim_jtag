@@ -71,7 +71,7 @@ gcc -shared -fPIC -o cosim_jtag.so ../src/jtag/cosim_jtag.c
 # -> Shared library "cosim_jtag.so" is automatically loaded.
 vsim -c tb -do "run -all" &
 
-# Wait a bit to ensure simulation could boot and UNIX socket could be created.
+# Wait a bit to ensure simulation could boot and TCP socket could be created.
 sleep 5
 
 # Run openocd in the background.

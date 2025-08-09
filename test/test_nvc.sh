@@ -74,7 +74,7 @@ nvc -L. -e tb
 # -> Flag "ieee-warnings" is NEORV32 specific.
 nvc -L. -r --load ./cosim_jtag.so --ieee-warnings=off tb &
 
-# Wait a bit to ensure simulation could boot and UNIX socket could be created.
+# Wait a bit to ensure simulation could boot and TCP socket could be created.
 sleep 2
 
 # Run openocd in the background.

@@ -70,7 +70,7 @@ ghdl -e -Pbuild --workdir=build tb
 # -> Flags "max-stack-alloc" and "ieee-asserts" are NEORV32 specific.
 ./tb --max-stack-alloc=0 --ieee-asserts=disable &
 
-# Wait a bit to ensure simulation could boot and UNIX socket could be created.
+# Wait a bit to ensure simulation could boot and TCP socket could be created.
 sleep 2
 
 # Run openocd in the background.

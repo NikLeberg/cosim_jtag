@@ -9,15 +9,15 @@ The communication channel from `GDB` to your softcore roughly looks like this:
 +-----+     +---------+     +--------------+     +----------------+     +---------------------+
 | GDB | <-> | OpenOCD | <-> | cosim_json.c | <-> | cosim_json.vhd | <-> | JTAG TAP / softcore |
 +-----+  :  +---------+  :  +--------------+  :  +----------------+  :  +---------------------+
-        TCP         UNIX socket             VHPI                   JTAG
+        TCP             TCP                 VHPI                   JTAG
                                          or VHPIDIRECT
                                          or MTI FLI
 
 [   outside simulator <<] [>> inside simulator                                                ]
 ```
 
-This repository contains a simple VHDL entity `cosim_jtag` with a corresponding C-API that exposes a named UNIX socket.
-The VHDL entity can be used wherever you want to drive the typical `tdo, tck, tms` and `tdi` JTAG signals. During simulation a named UNIX socket is created to which OpenOCD can connect via the lovely `remote bitbanging` protocol.
+This repository contains a simple VHDL entity `cosim_jtag` with a corresponding C-API that exposes a TCP socket.
+The VHDL entity can be used wherever you want to drive the typical `tdo, tck, tms` and `tdi` JTAG signals. During simulation a TCP socket is opened to which OpenOCD can connect via the lovely `remote bitbanging` protocol.
 GDB can then connect to OpenOCD as usual and off you go!
 
 
@@ -105,15 +105,15 @@ nvc -r --load ./cosim_jtag.so tb # run simulation
 If all went well, then your simulator output should contain:
 
 ```shell
-cosim_jtag: created unix socket at: /tmp/cosim_jtag.sock
+cosim_common: created tcp socket at port: 5555
 ```
 
 Connect to that socket with OpenOCD by selecting the `remote_bitbang` adapter in your config files.
 
 ```
 adapter driver remote_bitbang
-remote_bitbang_port 0
-remote_bitbang_host /tmp/cosim_jtag.sock
+remote_bitbang port 5555
+remote_bitbang host localhost
 
 <other config lines for jtag tap(s) and target(s)>
 ```
@@ -126,7 +126,6 @@ Compared to running on a real target a simulated JTAG connection can be quite sl
 
 ```
 # timeout in seconds
-riscv set_reset_timeout_sec 120
 riscv set_command_timeout_sec 120
 ```
 
@@ -135,7 +134,7 @@ If everything has been successful so far, OpenOCD should print out something lik
 ```
 [...]
 Info : Initializing remote_bitbang driver
-Info : Connecting to unix socket /tmp/cosim_jtag.sock
+Info : Connecting to localhost:5555
 Info : remote_bitbang driver initialized
 [...]
 Info : JTAG tap: riscv.cpu tap/device found: 0x00000003 (mfg: 0x001 (AMD), part: 0x0000, ver: 0x0)
