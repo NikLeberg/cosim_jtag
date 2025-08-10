@@ -11,12 +11,12 @@ set -x # local command echo
 if [ -z "$IN_DOCKER" ]; then
     docker run --rm -it \
         --env IN_DOCKER=1 \
-        --volume $(realpath ..):/work \
-        --workdir /work/test \
+        --volume $(realpath ../..):/work \
+        --workdir /work/test/jtag \
         --mac-address=00:ab:ab:ab:ab:ab \
         --entrypoint bash \
         ghcr.io/nikleberg/questasim:22.1 \
-        -c "/work/test/test_questasim.sh"
+        -c "/work/test/jtag/test_questasim.sh"
 
     exit 0
 fi
@@ -57,15 +57,18 @@ FILE_LIST=`cat $NEORV32_LOCAL_RTL/file_list_soc.f`
 CORE_SRCS="${FILE_LIST//NEORV32_RTL_PATH_PLACEHOLDER/"$NEORV32_LOCAL_RTL"}"
 vcom -work neorv32 -autoorder $CORE_SRCS
 
+# Source root for cosim_jtag.
+JTAG=../../src/jtag
+
 # Compile cosim_jtag design files.
 # -> ModelSim/QuestaSim requires FLI, so we must use cosim_jtag_fli.vhd as pkt.
-vcom -work cosim ../src/jtag/cosim_jtag_fli.vhd ../src/jtag/cosim_jtag.vhd
+vcom -work cosim $JTAG/cosim_jtag_fli.vhd $JTAG/cosim_jtag.vhd
 
 # Compile our testbench design file.
 vcom tb.vhd
 
 # Compile our C file into a shared library.
-gcc -shared -fPIC -o cosim_jtag.so ../src/jtag/cosim_jtag.c
+gcc -shared -fPIC -o cosim_jtag.so $JTAG/cosim_jtag.c
 
 # Run the simulation in the background.
 # -> Shared library "cosim_jtag.so" is automatically loaded.
