@@ -2,14 +2,15 @@
  * @file cosim_common.h
  * @author Niklaus Leuenberger <@NikLeberg>
  * @brief Common code shared between jtag and tap impl. Mainly for VHPI.
- * @version 0.1
- * @date 2025-08-08
+ * @version 0.2
+ * @date 2025-08-15
  *
  * SPDX-License-Identifier: MIT
  *
  * Changes:
  * Version  Date        Author     Detail
  * 0.1      2025-08-08  NikLeberg  initial version
+ * 0.2      2025-08-15  NikLeberg  make socket truly non-blocking
  *
  */
 
@@ -179,11 +180,14 @@ static int tcp_accept_connection(const int socket_fd)
             FAIL("cosim_common: tcp_accept_connection: failed with: %s (%d)\n",
                  strerror(errno), errno);
         }
+        return 0;
     }
-    else
-    {
-        PRINT("cosim_common: remote connected\n");
-    }
+
+    // The processing on the socket is called from within simulator and cannot
+    // run concurrently, we must not block.
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+
+    PRINT("cosim_common: remote connected\n");
     return fd;
 }
 
