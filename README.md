@@ -1,40 +1,42 @@
 # cosim_jtag
 > Connect to your VHDL simulation via JTAG!
 
-Got tired of looking at those pesky waveforms while ultimately debugging your VHDL softcore in simulation? Ever wished you could just use the glory that is the gnu debugger `GDB` without actually having to use any real hardware? Well here is your answer. With the magic that are procedural interfaces like `VHPI` or the proprietary `MTI FLI`, we can interface from the running simulation to other software. That is Co-Simulation.
+Got tired of looking at those pesky waveforms while ultimately debugging your VHDL softcore in simulation? Ever wished you could just use the glory that is the GNU debugger `GDB` without actually having to use any real hardware? Well here is your answer. With the magic that are procedural interfaces like `VHPI` or the proprietary `MTI FLI`, we can interface from the running simulation to other software. That is Co-Simulation.
 
 The communication channel from `GDB` to your softcore roughly looks like this:
 
 ```
 +-----+     +---------+     +--------------+     +----------------+     +---------------------+
-| GDB | <-> | OpenOCD | <-> | cosim_json.c | <-> | cosim_json.vhd | <-> | JTAG TAP / softcore |
+| GDB | <-> | OpenOCD | <-> | cosim_jtag.c | <-> | cosim_jtag.vhd | <-> | JTAG TAP / softcore |
 +-----+  :  +---------+  :  +--------------+  :  +----------------+  :  +---------------------+
-        TCP         UNIX socket             VHPI                   JTAG
-                                         or VHPIDIRECT
+        TCP             TCP                 VHPI                   JTAG
+                                         or VHPIDIRECT (GHDL)
                                          or MTI FLI
 
 [   outside simulator <<] [>> inside simulator                                                ]
 ```
 
-This repository contains a simple VHDL entity `cosim_jtag` with a corresponding C-API that exposes a named UNIX socket.
-The VHDL entity can be used wherever you want to drive the typical `tdo, tck, tms` and `tdi` JTAG signals. During simulation a named UNIX socket is created to which OpenOCD can connect via the lovely `remote bitbanging` protocol.
+This repository contains a simple VHDL entity `cosim_jtag` with a corresponding C-API that exposes a TCP socket.
+The VHDL entity can be used wherever you want to drive the typical `tdo, tck, tms` and `tdi` JTAG signals. During simulation, a TCP socket is created, to which OpenOCD can connect via the lovely `remote bitbanging` protocol.
 GDB can then connect to OpenOCD as usual and off you go!
 
 
 ## Supported Simulators
 
-| Simulator | Interface | Tested | Speed<sup><a href="#sup1" id="ref1">[1]</a></sup> |
-|---|---|---|---|
-| ModelSim | `MTI FLI` | :x: | ? |
-| QuestaSim | `MTI FLI` | :white_check_mark: | _8m 46s_ |
-| [ghdl](https://github.com/ghdl/ghdl) | `GHDL`<sup><a href="#sup2" id="ref2">[2]</a></sup> | :white_check_mark: | _6m 38s_ |
-| [nvc](https://github.com/nickg/nvc) | `VHPI` or `GHDL`<sup><a href="#sup3" id="ref3">[3]</a></sup> | :white_check_mark: | _1m 32s_ |
+| Simulator | Interface | Tested | Speed<sup><a href="#sup1" id="ref1">[1]</a></sup> | Transfer Rate<sup><a href="#sup2" id="ref2">[2]</a></sup> |
+|---|---|---|---|---|
+| ModelSim | `MTI FLI` | :x: | ? | ? |
+| QuestaSim | `MTI FLI` | :white_check_mark: | _3m 34s_ | _83 bytes/sec_ |
+| [ghdl](https://github.com/ghdl/ghdl) | `GHDL`<sup><a href="#sup3" id="ref3">[3]</a></sup> | :white_check_mark: | _1m 33s_ | _234 bytes/sec_ |
+| [nvc](https://github.com/nickg/nvc) | `VHPI` or `GHDL`<sup><a href="#sup4" id="ref4">[4]</a></sup> | :white_check_mark: | _52s_ | _412 bytes/sec_ |
 
 <sup id="sup1">[1] Time it took to analyze, elaborate, simulate and debug with GDB an example softcore-system based on [NEORV32](https://github.com/stnolting/neorv32). See `test_<simulator>.sh` scripts.<a href="#ref1" title="Jump back.">↩</a></sup>
 
-<sup id="sup2">[2] _ghdl_ implements a non-standard compliant `VHPIDIRECT` interface where instead of passing a single `const vhpiCbDataT*`, all arguments are passed more or less _1:1_.<a href="#ref2" title="Jump back.">↩</a></sup>
+<sup id="sup2">[2] Average transfer rate as determined by GDB 'load' command while uploading executables.<a href="#ref2" title="Jump back.">↩</a></sup>
 
-<sup id="sup3">[3] For portability, _nvc_ implements the same non-standard compliant `VHPIDIRECT` interface as _ghdl_ does. But it also implements standard compliant `VHPI`.<a href="#ref3" title="Jump back.">↩</a></sup>
+<sup id="sup3">[3] _ghdl_ implements a non-standard compliant `VHPIDIRECT` interface where instead of passing a single `const vhpiCbDataT*`, all arguments are passed more or less _1:1_.<a href="#ref3" title="Jump back.">↩</a></sup>
+
+<sup id="sup4">[4] For portability, _nvc_ implements the same non-standard compliant `VHPIDIRECT` interface as _ghdl_ does. But it also implements standard compliant `VHPI`.<a href="#ref4" title="Jump back.">↩</a></sup>
 
 Feel free to open an issue to request support for additional simulators or interfaces.
 
@@ -94,7 +96,7 @@ ghdl -a tb.vhd # analyze
 ghdl -e tb     # elaborate
 ```
 
-Now you should be ready to simulate. When starting the simulation some simulators (e.g. _nvc_) require your to explicitly load the previously compiled shared library `cosim_jtag.so`. Others load it automatically<sup><a href="#sup4" id="ref4">[4]</a></sup>. To start the simulation (with e.g. _nvc_) run:
+Now you should be ready to simulate. When starting the simulation some simulators (e.g. _nvc_) require you to explicitly load the previously compiled shared library `cosim_jtag.so`. Others load it automatically<sup><a href="#sup4" id="ref4">[4]</a></sup>. To start the simulation (with e.g. _nvc_) run:
 
 ```shell
 nvc -r --load ./cosim_jtag.so tb # run simulation
@@ -105,15 +107,15 @@ nvc -r --load ./cosim_jtag.so tb # run simulation
 If all went well, then your simulator output should contain:
 
 ```shell
-cosim_jtag: created unix socket at: /tmp/cosim_jtag.sock
+cosim_jtag: created tcp socket at port: 5555
 ```
 
 Connect to that socket with OpenOCD by selecting the `remote_bitbang` adapter in your config files.
 
 ```
 adapter driver remote_bitbang
-remote_bitbang_port 0
-remote_bitbang_host /tmp/cosim_jtag.sock
+remote_bitbang_port 5555
+remote_bitbang_host localhost
 
 <other config lines for jtag tap(s) and target(s)>
 ```
@@ -122,7 +124,7 @@ remote_bitbang_host /tmp/cosim_jtag.sock
 openocd -f openocd.cfg
 ```
 
-Compared to running on a real target a simulated JTAG connection can be quite slow. So OpenOCD might complain about timeouts. You can increase the timeout for commands with the following in the config:
+Compared to running on a real target, a simulated JTAG connection can be quite slow. So OpenOCD might complain about timeouts. You can increase the timeout for commands in the config:
 
 ```
 # timeout in seconds
@@ -135,7 +137,7 @@ If everything has been successful so far, OpenOCD should print out something lik
 ```
 [...]
 Info : Initializing remote_bitbang driver
-Info : Connecting to unix socket /tmp/cosim_jtag.sock
+Info : Connecting to localhost:5555
 Info : remote_bitbang driver initialized
 [...]
 Info : JTAG tap: riscv.cpu tap/device found: 0x00000003 (mfg: 0x001 (AMD), part: 0x0000, ver: 0x0)
