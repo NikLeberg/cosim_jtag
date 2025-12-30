@@ -15,13 +15,13 @@ if [ -z "$IN_DOCKER" ]; then
         --workdir /work/test \
         --mac-address=00:ab:ab:ab:ab:ab \
         --entrypoint bash \
-        ghcr.io/nikleberg/questasim:22.1 \
+        ghcr.io/nikleberg/questasim:25.1 \
         -c "/work/test/test_questasim.sh"
 
     exit 0
 fi
 
-# Docker image contains QuestaSim in version v22.1. We require additional
+# Docker image contains QuestaSim in version v25.1. We require additional
 # packages to run the full example.
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -71,7 +71,7 @@ gcc -shared -fPIC -o cosim_jtag.so ../cosim_jtag.c
 # -> Shared library "cosim_jtag.so" is automatically loaded.
 vsim -c tb -do "run -all" &
 
-# Wait a bit to ensure simulation could boot and UNIX socket could be created.
+# Wait a bit to ensure simulation could boot and TCP socket could be created.
 sleep 5
 
 # Run openocd in the background.

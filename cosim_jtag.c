@@ -3,8 +3,8 @@
  * @author Niklaus Leuenberger <@NikLeberg>
  * @brief Implements interface between VHDL (through VHPIDIRCET or MTI FLI) and
  *        OpenOCD (through remote bitbanging socket).
- * @version 0.5
- * @date 2024-09-22
+ * @version 0.6
+ * @date 2025-12-29
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,14 +16,17 @@
  *                                 interface and rename to cosim_jtag
  * 0.4      2024-08-20  NikLeberg  print success message on socket creation
  * 0.5      2024-08-22  NikLeberg  implement standard VHPI interface
+ * 0.6      2025-12-29  NikLeberg  make data socket nonblocking, set TCP_NODELAY
+ *                                 and process multiple commands each sim tick.
  *
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -46,7 +49,7 @@
     }
 #endif // USE_VHPI
 
-#define SOCKET_NAME "/tmp/cosim_jtag.sock"
+#define SOCKET_PORT 5555
 static int listen_socket = -1;
 static int data_socket = -1;
 
@@ -54,27 +57,25 @@ static int create_socket(void)
 {
     int ret;
 
-    unlink(SOCKET_NAME);
-
-    listen_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    listen_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_socket == -1)
     {
         FAIL("cosim_jtag: create_socket failed to make socket: %s (%d)\n", strerror(errno), errno);
     }
 
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(struct sockaddr_un));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, SOCKET_NAME, sizeof(addr.sun_path) - 1);
-    ret = bind(listen_socket, (const struct sockaddr *)&addr,
-               sizeof(struct sockaddr_un));
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(SOCKET_PORT);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+    ret = bind(listen_socket, (struct sockaddr *)&addr, sizeof(addr));
     if (ret == -1)
     {
         FAIL("cosim_jtag: create_socket failed to bind socket: %s (%d)\n", strerror(errno), errno);
     }
 
-    // The processing on the socket is called from within GHDL and cannot run
-    // concurrently, we must not block.
+    // The processing on the socket is called from within simulator and cannot
+    // run concurrently, we must not block.
     fcntl(listen_socket, F_SETFL, O_NONBLOCK);
 
     ret = listen(listen_socket, 0);
@@ -83,7 +84,7 @@ static int create_socket(void)
         FAIL("cosim_jtag: create_socket failed to listen on socket: %s (%d)\n", strerror(errno), errno);
     }
 
-    PRINT("cosim_jtag: created unix socket at: " SOCKET_NAME "\n");
+    PRINT("cosim_jtag: created tcp socket at port: %i\n", SOCKET_PORT);
 }
 
 static void accept_connection(void)
@@ -98,6 +99,14 @@ static void accept_connection(void)
     }
     else
     {
+        // The processing on the socket is called from within simulator and
+        // cannot run concurrently, we must not block.
+        fcntl(data_socket, F_SETFL, O_NONBLOCK);
+
+        // Disable Nagle algorithm i.e. send small amounts of data without wait.
+        int one = 1;
+        setsockopt(data_socket, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+
         PRINT("cosim_jtag: remote connected\n");
     }
 }
@@ -146,59 +155,69 @@ static void process_socket(char tdo, state_t *state)
     char buffer, val;
 
     // receive data from openocd through socket
-    ret = read(data_socket, &buffer, 1);
+    while ((ret = read(data_socket, &buffer, 1)) == 1)
+    {
+        // process received byte, protocol according to openocd docs:
+        // https://github.com/openocd-org/openocd/blob/master/doc/manual/jtag/drivers/remote_bitbang.txt
+        switch (buffer)
+        {
+        case 'B': // Blink on
+        case 'b': // Blink off
+            break;
+        case 'R': // Read request
+            val = HDL_TO_INT(tdo) ? '1' : '0';
+            ret = write(data_socket, &val, 1);
+            if (ret == -1)
+            {
+                FAIL("cosim_jtag: process_socket failed to write: %s (%d)\n", strerror(errno), errno);
+            }
+            break;
+        case 'Q': // Quit request
+            PRINT("cosim_jtag: remote quit request\n");
+            close(data_socket);
+            data_socket = -1;
+            return;
+        case '0': // Write 0 0 0
+        case '1': // Write 0 0 1
+        case '2': // Write 0 1 0
+        case '3': // Write 0 1 1
+        case '4': // Write 1 0 0
+        case '5': // Write 1 0 1
+        case '6': // Write 1 1 0
+        case '7': // Write 1 1 1
+            val = buffer - '0';
+            state->tck = INT_TO_HDL(val & 0b100);
+            state->tms = INT_TO_HDL(val & 0b010);
+            state->tdi = INT_TO_HDL(val & 0b001);
+            return; // let RTL logic handle bit change
+        case 'r': // Reset 0 0
+        case 's': // Reset 0 1
+        case 't': // Reset 1 0
+        case 'u': // Reset 1 1
+            val = buffer - 'r';
+            state->trst = INT_TO_HDL(val & 0b10);
+            state->srst = INT_TO_HDL(val & 0b01);
+            return; // let RTL logic handle bit change
+        default:
+            break;
+        }
+    }
+
     if (ret == -1)
     {
+        if (errno == EAGAIN)
+        {
+            return; // no data to process
+        }
         FAIL("cosim_jtag: process_socket failed to read: %s (%d)\n", strerror(errno), errno);
     }
 
     if (ret == 0)
     {
-        return; // no data to process
-    }
-
-    // process received byte, protocol according to openocd docs:
-    // https://github.com/openocd-org/openocd/blob/master/doc/manual/jtag/drivers/remote_bitbang.txt
-    switch (buffer)
-    {
-    case 'B': // Blink on
-    case 'b': // Blink off
-        break;
-    case 'R': // Read request
-        val = HDL_TO_INT(tdo) ? '1' : '0';
-        ret = write(data_socket, &val, 1);
-        if (ret == -1)
-        {
-            FAIL("cosim_jtag: process_socket failed to write: %s (%d)\n", strerror(errno), errno);
-        }
-        break;
-    case 'Q': // Quit request
         PRINT("cosim_jtag: remote disconnected\n");
         close(data_socket);
         data_socket = -1;
-        break;
-    case '0': // Write 0 0 0
-    case '1': // Write 0 0 1
-    case '2': // Write 0 1 0
-    case '3': // Write 0 1 1
-    case '4': // Write 1 0 0
-    case '5': // Write 1 0 1
-    case '6': // Write 1 1 0
-    case '7': // Write 1 1 1
-        val = buffer - '0';
-        state->tck = INT_TO_HDL(val & 0b100);
-        state->tms = INT_TO_HDL(val & 0b010);
-        state->tdi = INT_TO_HDL(val & 0b001);
-        break;
-    case 'r': // Reset 0 0
-    case 's': // Reset 0 1
-    case 't': // Reset 1 0
-    case 'u': // Reset 1 1
-        val = buffer - 'r';
-        state->trst = INT_TO_HDL(val & 0b10);
-        state->srst = INT_TO_HDL(val & 0b01);
-    default:
-        break;
+        return;
     }
 }
 
@@ -208,7 +227,7 @@ static void process_socket(char tdo, state_t *state)
 // specific "cosim_jtag_<simulator_interface>.vhd" package file.
 void cosim_jtag_tick(char tdo, char *tck, char *tms, char *tdi, char *trst, char *srst)
 {
-    // Create and open a named file socked if not already open.
+    // Create and open a TCP loopback socket if not already open.
     if (listen_socket == -1)
     {
         create_socket();
